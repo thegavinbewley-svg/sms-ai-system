@@ -597,7 +597,7 @@ def sms_reply():
     save_data(prospects)
 
     print(f"🤖 {clean_reply}")
-    time.sleep(random.randint(30, 60))
+    
     resp = MessagingResponse()
     resp.message(clean_reply)
     return str(resp)
