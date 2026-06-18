@@ -1,0 +1,41 @@
+{
+  "+16722043080": {
+    "name": "Unknown",
+    "stage": "INTERESTED",
+    "budget": "unknown",
+    "why": "unknown",
+    "last_message": "Hello",
+    "updated_at": "2026-06-18 02:38",
+    "takeover": true,
+    "conversation": [
+      {
+        "role": "user",
+        "content": "Hey"
+      },
+      {
+        "role": "assistant",
+        "content": "Hey! Is this [Lead Name]? \ud83d\udc4b"
+      },
+      {
+        "role": "user",
+        "content": "How do I start?"
+      },
+      {
+        "role": "assistant",
+        "content": "Hey! I'm Gavin, I work with Nathan Nazareth's team. You signed up showing interest in making money online through dropshipping \u2014 just reaching out to see if you're still looking to get started! \ud83d\ude0a"
+      },
+      {
+        "role": "user",
+        "content": "Hello"
+      },
+      {
+        "role": "assistant",
+        "content": "Hey! Still interested in getting a dropshipping business going? \ud83d\udc4b"
+      },
+      {
+        "role": "gavin",
+        "content": "hi"
+      }
+    ]
+  }
+}
