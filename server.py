@@ -18,9 +18,9 @@ app = Flask(__name__)
 # ============================================================
 # CONFIGURATION
 # ============================================================
-TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID", "")
-TWILIO_AUTH_TOKEN  = os.environ.get("TWILIO_AUTH_TOKEN", "")
-TWILIO_FROM_NUMBER = os.environ.get("TWILIO_FROM_NUMBER", "")
+TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID", "ACadf86f354db213cd7b5769d3816f6c84")
+TWILIO_AUTH_TOKEN  = os.environ.get("TWILIO_AUTH_TOKEN", "bba89b16c02066e1cec0091ecbd100eb")
+TWILIO_FROM_NUMBER = os.environ.get("TWILIO_FROM_NUMBER", "+12362432623")
 DATA_FILE          = "prospects.json"
 
 # ============================================================
