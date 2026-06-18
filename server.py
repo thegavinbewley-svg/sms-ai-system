@@ -283,152 +283,655 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  :root {
-    --bg: #0d0d0d;
-    --surface: #161616;
-    --surface2: #1e1e1e;
-    --border: rgba(255,255,255,0.07);
-    --border2: rgba(255,255,255,0.12);
-    --text: #f0f0f0;
-    --text2: #888;
-    --text3: #555;
-    --green: #4ade80;
-    --orange: #fb923c;
-    --blue: #60a5fa;
-    --red: #f87171;
-    --radius: 10px;
+  body {
+    background: #F7F7F5;
+    color: #111827;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 
-  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+  /* ── HEADER ── */
+  header {
+    background: #FFFFFF;
+    border-bottom: 1px solid #E5E5E3;
+    padding: 0 20px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-shrink: 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
 
-  /* HEADER */
-  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; gap: 20px; flex-shrink: 0; }
-  .logo { font-size: 15px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
-  .logo span { color: var(--green); }
-  .stats { display: flex; gap: 16px; margin-left: auto; }
-  .stat { display: flex; flex-direction: column; align-items: center; }
-  .stat-n { font-size: 20px; font-weight: 700; line-height: 1; }
-  .stat-l { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
-  .stat.s-blue .stat-n { color: var(--blue); }
-  .stat.s-green .stat-n { color: var(--green); }
-  .stat.s-orange .stat-n { color: var(--orange); }
-  .refresh { background: var(--surface2); border: 1px solid var(--border2); color: var(--text2); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: all 0.15s; }
-  .refresh:hover { color: var(--text); border-color: rgba(255,255,255,0.25); }
+  .logo {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+    letter-spacing: -0.2px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
 
-  /* BOARD */
-  .board { display: flex; flex: 1; overflow-x: auto; overflow-y: hidden; gap: 1px; background: var(--border); }
-  .board::-webkit-scrollbar { height: 6px; }
-  .board::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 3px; }
+  .logo-icon {
+    width: 26px;
+    height: 26px;
+    background: #2563EB;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
 
-  /* COLUMN */
-  .col { background: var(--bg); display: flex; flex-direction: column; min-width: 220px; flex: 1; }
-  .col-head { padding: 14px 14px 10px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-  .col-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
-  .col-count { font-size: 11px; font-weight: 600; background: var(--surface2); padding: 2px 7px; border-radius: 20px; color: var(--text2); }
-  .col-body { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .logo-icon svg { display: block; }
+
+  .stats {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+    background: #F3F4F6;
+    border: 1px solid #E5E7EB;
+    border-radius: 9px;
+    padding: 3px;
+  }
+
+  .stat {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 13px;
+    border-radius: 7px;
+    cursor: default;
+  }
+
+  .stat-n {
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1;
+    color: #374151;
+  }
+
+  .stat-l {
+    font-size: 11px;
+    color: #9CA3AF;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .stat-divider {
+    width: 1px;
+    height: 20px;
+    background: #E5E7EB;
+    flex-shrink: 0;
+  }
+
+  .stat.highlighted {
+    background: #FFFFFF;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+  }
+
+  .stat.highlighted .stat-n { color: #2563EB; }
+
+  .refresh-btn {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    color: #6B7280;
+    padding: 7px 13px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+  }
+
+  .refresh-btn:hover {
+    background: #F9FAFB;
+    color: #374151;
+    border-color: #D1D5DB;
+  }
+
+  /* ── BOARD ── */
+  .board {
+    display: flex;
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 14px 16px;
+    gap: 10px;
+  }
+
+  .board::-webkit-scrollbar { height: 5px; }
+  .board::-webkit-scrollbar-track { background: transparent; }
+  .board::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 3px; }
+
+  /* ── COLUMN ── */
+  .col {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    min-width: 215px;
+    flex: 1;
+    max-width: 285px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    overflow: hidden;
+  }
+
+  .col-head {
+    padding: 11px 13px 10px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    border-bottom: 1px solid #F3F4F6;
+    flex-shrink: 0;
+    background: #FAFAFA;
+  }
+
+  .stage-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .col-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+    flex: 1;
+    letter-spacing: 0.01em;
+  }
+
+  .col-count {
+    font-size: 11px;
+    font-weight: 600;
+    background: #F3F4F6;
+    color: #9CA3AF;
+    padding: 2px 7px;
+    border-radius: 20px;
+    min-width: 22px;
+    text-align: center;
+  }
+
+  .col-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 9px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+
   .col-body::-webkit-scrollbar { width: 3px; }
-  .col-body::-webkit-scrollbar-thumb { background: var(--surface2); }
-  .col-body.drag-over { background: rgba(255,255,255,0.03); outline: 1.5px dashed var(--border2); outline-offset: -4px; border-radius: 6px; }
-  .empty { color: var(--text3); font-size: 12px; text-align: center; padding: 24px 10px; }
+  .col-body::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 2px; }
 
-  /* CARD */
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 11px 13px; cursor: grab; transition: border-color 0.15s, transform 0.1s; user-select: none; }
-  .card:hover { border-color: var(--border2); }
-  .card.dragging { opacity: 0.45; transform: scale(0.97); cursor: grabbing; }
-  .card-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
-  .card-phone { font-size: 11px; color: var(--text3); margin-bottom: 7px; font-family: 'SF Mono', monospace; }
-  .card-last { font-size: 11px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .card-time { font-size: 10px; color: var(--text3); margin-top: 5px; }
+  .col-body.drag-over {
+    background: #EFF6FF;
+    outline: 2px dashed #BFDBFE;
+    outline-offset: -3px;
+    border-radius: 6px;
+  }
 
-  /* MODAL */
-  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 50; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
-  .overlay.open { display: flex; }
-  .modal { background: var(--surface); border: 1px solid var(--border2); border-radius: 14px; width: 480px; max-width: 94vw; max-height: 84vh; display: flex; flex-direction: column; }
-  .modal-top { padding: 18px 20px 14px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; }
-  .modal-name { font-size: 18px; font-weight: 700; }
-  .modal-phone { font-size: 12px; color: var(--text2); margin-top: 2px; font-family: 'SF Mono', monospace; }
-  .modal-close { background: var(--surface2); border: none; color: var(--text2); width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
-  .modal-close:hover { color: var(--text); }
-  .modal-tags { padding: 10px 20px; border-bottom: 1px solid var(--border); display: flex; gap: 8px; flex-wrap: wrap; }
-  .tag { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
-  .convo { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; }
-  .convo::-webkit-scrollbar { width: 3px; }
-  .convo::-webkit-scrollbar-thumb { background: var(--surface2); }
+  .empty-col {
+    color: #D1D5DB;
+    font-size: 12px;
+    text-align: center;
+    padding: 28px 10px;
+  }
+
+  /* ── CARD ── */
+  .card {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 9px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: box-shadow 0.15s, border-color 0.15s, transform 0.1s;
+    user-select: none;
+  }
+
+  .card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.09);
+    border-color: #C7CDD6;
+  }
+
+  .card.dragging {
+    opacity: 0.45;
+    transform: scale(0.96) rotate(0.8deg);
+    cursor: grabbing;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.13);
+  }
+
+  .card-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 2px;
+  }
+
+  .card-phone {
+    font-size: 11px;
+    color: #9CA3AF;
+    margin-bottom: 6px;
+    font-family: 'SF Mono', 'Fira Code', 'Menlo', monospace;
+    letter-spacing: 0.02em;
+  }
+
+  .card-last {
+    font-size: 12px;
+    color: #6B7280;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.4;
+  }
+
+  .card-time {
+    font-size: 10px;
+    color: #D1D5DB;
+    margin-top: 6px;
+  }
+
+  /* ── PANEL BACKDROP ── */
+  .panel-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(17,24,39,0.16);
+    z-index: 40;
+  }
+
+  .panel-backdrop.open { display: block; }
+
+  /* ── SIDE PANEL ── */
+  .side-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 390px;
+    max-width: 96vw;
+    height: 100vh;
+    background: #FFFFFF;
+    border-left: 1px solid #E5E5E3;
+    box-shadow: -6px 0 28px rgba(0,0,0,0.1);
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .side-panel.open {
+    transform: translateX(0);
+  }
+
+  .panel-header {
+    padding: 16px 18px 13px;
+    border-bottom: 1px solid #F3F4F6;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-shrink: 0;
+    background: #FAFAFA;
+  }
+
+  .panel-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1.2;
+  }
+
+  .panel-phone {
+    font-size: 11px;
+    color: #9CA3AF;
+    margin-top: 3px;
+    font-family: 'SF Mono', 'Fira Code', 'Menlo', monospace;
+    letter-spacing: 0.02em;
+  }
+
+  .panel-close {
+    background: #F3F4F6;
+    border: none;
+    color: #6B7280;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 17px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .panel-close:hover {
+    background: #E5E7EB;
+    color: #374151;
+  }
+
+  .panel-meta {
+    padding: 9px 18px;
+    border-bottom: 1px solid #F3F4F6;
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    align-items: center;
+  }
+
+  .stage-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px 3px 7px;
+    border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .meta-time {
+    font-size: 11px;
+    color: #9CA3AF;
+  }
+
+  /* ── CONVERSATION ── */
+  .convo {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: #F9FAFB;
+  }
+
+  .convo::-webkit-scrollbar { width: 4px; }
+  .convo::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 2px; }
+
   .bubble-wrap { display: flex; flex-direction: column; }
   .bubble-wrap.out { align-items: flex-end; }
-  .bubble-label { font-size: 10px; color: var(--text3); margin-bottom: 3px; }
-  .bubble { max-width: 76%; padding: 9px 13px; border-radius: 12px; font-size: 13px; line-height: 1.5; }
-  .bubble.in { background: var(--surface2); color: var(--text); border-bottom-left-radius: 3px; }
-  .bubble.out { background: #1a3a20; color: #b0f0b0; border-bottom-right-radius: 3px; }
-  .empty-convo { color: var(--text3); font-size: 13px; text-align: center; padding: 30px; }
-  .modal-actions { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; flex-wrap: wrap; }
-  .btn { padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid; transition: all 0.15s; }
-  .btn-take { color: var(--orange); border-color: rgba(251,146,60,0.3); background: rgba(251,146,60,0.08); }
-  .btn-take:hover { background: rgba(251,146,60,0.15); }
-  .btn-resume { color: var(--green); border-color: rgba(74,222,128,0.3); background: rgba(74,222,128,0.08); }
-  .btn-resume:hover { background: rgba(74,222,128,0.15); }
-  .btn-stage { color: var(--blue); border-color: rgba(96,165,250,0.3); background: rgba(96,165,250,0.08); font-size: 12px; }
-  .btn-stage:hover { background: rgba(96,165,250,0.15); }
-  .stage-picker { padding: 10px 20px; border-top: 1px solid var(--border); display: none; flex-wrap: wrap; gap: 6px; }
+
+  .bubble-label {
+    font-size: 10px;
+    color: #9CA3AF;
+    margin-bottom: 4px;
+    letter-spacing: 0.02em;
+  }
+
+  .bubble {
+    max-width: 82%;
+    padding: 9px 13px;
+    border-radius: 13px;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .bubble.in {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    color: #111827;
+    border-bottom-left-radius: 3px;
+  }
+
+  .bubble.out {
+    background: #2563EB;
+    color: #FFFFFF;
+    border-bottom-right-radius: 3px;
+  }
+
+  .empty-convo {
+    color: #D1D5DB;
+    font-size: 13px;
+    text-align: center;
+    padding: 48px 20px;
+  }
+
+  /* ── PANEL ACTIONS ── */
+  .panel-actions {
+    padding: 11px 18px;
+    border-top: 1px solid #F3F4F6;
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    background: #FFFFFF;
+  }
+
+  .btn {
+    padding: 7px 13px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid;
+    transition: all 0.15s;
+    white-space: nowrap;
+    line-height: 1.4;
+  }
+
+  .btn-primary {
+    background: #2563EB;
+    color: #FFFFFF;
+    border-color: #2563EB;
+  }
+
+  .btn-primary:hover {
+    background: #1D4ED8;
+    border-color: #1D4ED8;
+  }
+
+  .btn-ghost {
+    background: #FFFFFF;
+    color: #374151;
+    border-color: #E5E7EB;
+  }
+
+  .btn-ghost:hover {
+    background: #F9FAFB;
+    border-color: #D1D5DB;
+    color: #111827;
+  }
+
+  /* ── STAGE PICKER ── */
+  .stage-picker {
+    padding: 10px 18px;
+    border-top: 1px solid #F3F4F6;
+    display: none;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex-shrink: 0;
+    background: #FAFAFA;
+  }
+
   .stage-picker.open { display: flex; }
-  .stage-opt { font-size: 11px; padding: 5px 11px; border-radius: 20px; cursor: pointer; border: 1px solid var(--border2); background: var(--surface2); color: var(--text2); transition: all 0.12s; }
-  .stage-opt:hover { color: var(--text); border-color: rgba(255,255,255,0.25); }
-  .reply-box { padding: 12px 20px; border-top: 1px solid var(--border); display: none; }
+
+  .stage-opt {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 5px 11px 5px 9px;
+    border-radius: 20px;
+    cursor: pointer;
+    border: 1px solid #E5E7EB;
+    background: #FFFFFF;
+    color: #374151;
+    transition: all 0.12s;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .stage-opt:hover {
+    background: #EFF6FF;
+    border-color: #BFDBFE;
+    color: #1D4ED8;
+  }
+
+  .stage-opt-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ── REPLY BOX ── */
+  .reply-box {
+    padding: 11px 18px 13px;
+    border-top: 1px solid #F3F4F6;
+    display: none;
+    flex-shrink: 0;
+    background: #FFFFFF;
+  }
+
   .reply-box.open { display: block; }
-  .reply-box textarea { width: 100%; background: var(--bg); border: 1px solid var(--border2); border-radius: 8px; color: var(--text); padding: 10px 13px; font-size: 13px; resize: none; height: 72px; font-family: inherit; outline: none; }
-  .reply-box textarea:focus { border-color: rgba(255,255,255,0.25); }
-  .reply-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
-  .reply-hint { font-size: 11px; color: var(--text3); }
-  .btn-send { background: var(--green); color: #000; padding: 8px 18px; border-radius: 8px; font-weight: 700; font-size: 13px; border: none; cursor: pointer; }
-  .btn-send:hover { background: #22c55e; }
-  .btn-send:disabled { background: var(--surface2); color: var(--text3); cursor: not-allowed; }
+
+  .reply-box textarea {
+    width: 100%;
+    background: #F9FAFB;
+    border: 1px solid #E5E7EB;
+    border-radius: 8px;
+    color: #111827;
+    padding: 9px 12px;
+    font-size: 13px;
+    resize: none;
+    height: 70px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    line-height: 1.5;
+  }
+
+  .reply-box textarea::placeholder { color: #C4C9D4; }
+
+  .reply-box textarea:focus {
+    border-color: #93C5FD;
+    background: #FFFFFF;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.08);
+  }
+
+  .reply-foot {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 7px;
+  }
+
+  .btn-send {
+    background: #2563EB;
+    color: #FFFFFF;
+    padding: 7px 18px;
+    border-radius: 7px;
+    font-weight: 600;
+    font-size: 13px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .btn-send:hover { background: #1D4ED8; }
+
+  .btn-send:disabled {
+    background: #E5E7EB;
+    color: #9CA3AF;
+    cursor: not-allowed;
+  }
 </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">Gavin's <span>Pipeline</span></div>
-  <div class="stats">
-    <div class="stat s-blue"><div class="stat-n" id="s-total">0</div><div class="stat-l">Total</div></div>
-    <div class="stat s-green"><div class="stat-n" id="s-replied">0</div><div class="stat-l">Replied</div></div>
-    <div class="stat s-orange"><div class="stat-n" id="s-yours">0</div><div class="stat-l">Your turn</div></div>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+        <rect x="1" y="1" width="5" height="5" rx="1.5" fill="white" opacity="0.9"/>
+        <rect x="8" y="1" width="5" height="5" rx="1.5" fill="white" opacity="0.6"/>
+        <rect x="1" y="8" width="5" height="5" rx="1.5" fill="white" opacity="0.6"/>
+        <rect x="8" y="8" width="5" height="5" rx="1.5" fill="white" opacity="0.3"/>
+      </svg>
+    </div>
+    Pipeline
   </div>
-  <button class="refresh" onclick="load()">Refresh</button>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-n" id="s-total">0</div>
+      <div class="stat-l">Total leads</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat highlighted">
+      <div class="stat-n" id="s-replied">0</div>
+      <div class="stat-l">Replied</div>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat highlighted">
+      <div class="stat-n" id="s-yours">0</div>
+      <div class="stat-l">Your turn</div>
+    </div>
+  </div>
+
+  <button class="refresh-btn" onclick="load()">
+    <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+      <path d="M9.5 5.5A4 4 0 1 1 5.5 1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      <path d="M5.5 1.5L7.5 3.5L5.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Refresh
+  </button>
 </header>
 
 <div class="board" id="board"></div>
 
-<div class="overlay" id="overlay">
-  <div class="modal">
-    <div class="modal-top">
-      <div><div class="modal-name" id="m-name"></div><div class="modal-phone" id="m-phone"></div></div>
-      <button class="modal-close" onclick="closeModal()">×</button>
+<div class="panel-backdrop" id="panel-backdrop" onclick="closePanel()"></div>
+
+<div class="side-panel" id="side-panel">
+  <div class="panel-header">
+    <div>
+      <div class="panel-name" id="p-name"></div>
+      <div class="panel-phone" id="p-phone"></div>
     </div>
-    <div class="modal-tags" id="m-tags"></div>
-    <div class="convo" id="m-convo"></div>
-    <div class="modal-actions">
-      <button class="btn" id="btn-take" onclick="toggleTakeover()">Take over</button>
-      <button class="btn btn-stage" onclick="togglePicker()">Move stage</button>
-    </div>
-    <div class="stage-picker" id="stage-picker"></div>
-    <div class="reply-box" id="reply-box">
-      <textarea id="reply-text" placeholder="Type your message…"></textarea>
-      <div class="reply-foot">
-        <span class="reply-hint">You're in control</span>
-        <button class="btn-send" id="btn-send" onclick="sendMsg()">Send</button>
-      </div>
+    <button class="panel-close" onclick="closePanel()">&#x2715;</button>
+  </div>
+  <div class="panel-meta" id="p-meta"></div>
+  <div class="convo" id="p-convo"></div>
+  <div class="panel-actions">
+    <button class="btn btn-primary" id="btn-take" onclick="toggleTakeover()">Take over</button>
+    <button class="btn btn-ghost" onclick="togglePicker()">Move stage</button>
+  </div>
+  <div class="stage-picker" id="stage-picker"></div>
+  <div class="reply-box" id="reply-box">
+    <textarea id="reply-text" placeholder="Type your reply…"></textarea>
+    <div class="reply-foot">
+      <button class="btn-send" id="btn-send" onclick="sendMsg()">Send</button>
     </div>
   </div>
 </div>
 
 <script>
 const STAGES = [
-  ["NEW",       "New",            "#555"],
-  ["REPLIED",   "Replied",        "#60a5fa"],
-  ["CALL_SENT", "Call asked",     "#f59e0b"],
-  ["SCHEDULED", "Scheduled",      "#2dd4bf"],
-  ["TAKEOVER",  "Your turn",      "#fb923c"],
-  ["DEAD",      "Not interested", "#444"],
+  ["NEW",       "New",            "#94A3B8"],
+  ["REPLIED",   "Replied",        "#3B82F6"],
+  ["CALL_SENT", "Call Asked",     "#F59E0B"],
+  ["SCHEDULED", "Scheduled",      "#10B981"],
+  ["TAKEOVER",  "Your Turn",      "#F97316"],
+  ["DEAD",      "Not Interested", "#9CA3AF"],
 ];
 
 let data = {};
@@ -442,7 +945,7 @@ async function load() {
   document.getElementById('s-replied').textContent = json.replied || 0;
   document.getElementById('s-yours').textContent = json.takeover || 0;
   renderBoard();
-  if (cur && data[cur]) renderModal(cur);
+  if (cur && data[cur]) renderPanel(cur);
 }
 
 function renderBoard() {
@@ -455,14 +958,15 @@ function renderBoard() {
     col.dataset.stage = code;
     col.innerHTML = `
       <div class="col-head">
-        <span class="col-title" style="color:${color}">${label}</span>
+        <div class="stage-dot" style="background:${color}"></div>
+        <span class="col-title">${label}</span>
         <span class="col-count">${leads.length}</span>
       </div>
-      <div class="col-body" id="body-${code}" 
-           ondragover="onDragOver(event)" 
-           ondragleave="onDragLeave(event)" 
+      <div class="col-body" id="body-${code}"
+           ondragover="onDragOver(event)"
+           ondragleave="onDragLeave(event)"
            ondrop="onDrop(event,'${code}')">
-        ${leads.length === 0 ? '<div class="empty">No leads</div>' : ''}
+        ${leads.length === 0 ? '<div class="empty-col">No leads</div>' : ''}
       </div>
     `;
     board.appendChild(col);
@@ -472,10 +976,10 @@ function renderBoard() {
       card.className = 'card';
       card.draggable = true;
       card.dataset.phone = phone;
-      card.onclick = () => openModal(phone);
+      card.onclick = () => openPanel(phone);
       card.ondragstart = (e) => { e.dataTransfer.setData('phone', phone); card.classList.add('dragging'); };
       card.ondragend = () => card.classList.remove('dragging');
-      const last = p.last_message ? p.last_message.substring(0,48)+(p.last_message.length>48?'…':'') : '';
+      const last = p.last_message ? p.last_message.substring(0,52)+(p.last_message.length>52?'…':'') : '';
       card.innerHTML = `
         <div class="card-name">${p.name || 'Unknown'}</div>
         <div class="card-phone">${phone}</div>
@@ -503,23 +1007,27 @@ async function onDrop(e, stage) {
   await load();
 }
 
-function openModal(phone) {
+function openPanel(phone) {
   cur = phone;
-  renderModal(phone);
-  document.getElementById('overlay').classList.add('open');
+  renderPanel(phone);
+  document.getElementById('panel-backdrop').classList.add('open');
+  document.getElementById('side-panel').classList.add('open');
 }
 
-function renderModal(phone) {
+function renderPanel(phone) {
   const p = data[phone];
   if (!p) return;
-  document.getElementById('m-name').textContent = p.name || 'Unknown';
-  document.getElementById('m-phone').textContent = phone;
+  document.getElementById('p-name').textContent = p.name || 'Unknown';
+  document.getElementById('p-phone').textContent = phone;
   const stageInfo = STAGES.find(([c]) => c === p.stage) || STAGES[0];
-  document.getElementById('m-tags').innerHTML = `
-    <span class="tag" style="background:${stageInfo[2]}22;color:${stageInfo[2]};border:1px solid ${stageInfo[2]}44">${stageInfo[1]}</span>
-    ${p.updated_at ? `<span class="tag" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border)">${p.updated_at}</span>` : ''}
+  const hex = stageInfo[2];
+  document.getElementById('p-meta').innerHTML = `
+    <span class="stage-badge" style="background:${hex}18;color:${hex};border:1px solid ${hex}38">
+      <span class="badge-dot" style="background:${hex}"></span>${stageInfo[1]}
+    </span>
+    ${p.updated_at ? `<span class="meta-time">${p.updated_at}</span>` : ''}
   `;
-  const convo = document.getElementById('m-convo');
+  const convo = document.getElementById('p-convo');
   convo.innerHTML = '';
   const msgs = p.conversation || [];
   if (!msgs.length) { convo.innerHTML = '<div class="empty-convo">No messages yet</div>'; }
@@ -535,20 +1043,23 @@ function renderModal(phone) {
   const replyBox = document.getElementById('reply-box');
   if (p.takeover) {
     btnTake.textContent = 'Resume auto';
-    btnTake.className = 'btn btn-resume';
+    btnTake.className = 'btn btn-ghost';
     replyBox.classList.add('open');
   } else {
     btnTake.textContent = 'Take over';
-    btnTake.className = 'btn btn-take';
+    btnTake.className = 'btn btn-primary';
     replyBox.classList.remove('open');
   }
   const picker = document.getElementById('stage-picker');
   picker.classList.remove('open');
-  picker.innerHTML = STAGES.map(([code,label]) => `<span class="stage-opt" onclick="setStage('${code}')">${label}</span>`).join('');
+  picker.innerHTML = STAGES.map(([code, label, color]) =>
+    `<span class="stage-opt" onclick="setStage('${code}')"><span class="stage-opt-dot" style="background:${color}"></span>${label}</span>`
+  ).join('');
 }
 
-function closeModal() {
-  document.getElementById('overlay').classList.remove('open');
+function closePanel() {
+  document.getElementById('panel-backdrop').classList.remove('open');
+  document.getElementById('side-panel').classList.remove('open');
   document.getElementById('stage-picker').classList.remove('open');
   cur = null;
 }
@@ -582,8 +1093,7 @@ async function setStage(stage) {
   await load();
 }
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
-document.getElementById('overlay').addEventListener('click', e => { if (e.target === document.getElementById('overlay')) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
 
 load();
 setInterval(load, 30000);
