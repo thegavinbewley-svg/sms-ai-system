@@ -9,6 +9,8 @@ from flask import Flask, request, jsonify, render_template_string
 from twilio.rest import Client
 from twilio.twiml.messaging_response import MessagingResponse
 import anthropic
+import random
+import time
 import json
 import os
 from datetime import datetime
@@ -595,6 +597,7 @@ def sms_reply():
     save_data(prospects)
 
     print(f"🤖 {clean_reply}")
+    time.sleep(random.randint(30, 60))
     resp = MessagingResponse()
     resp.message(clean_reply)
     return str(resp)
