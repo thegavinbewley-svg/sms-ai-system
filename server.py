@@ -12,6 +12,8 @@ import json
 import os
 import psycopg2
 import psycopg2.extras
+import threading
+import time
 from datetime import datetime
 
 app = Flask(__name__)
@@ -240,24 +242,31 @@ def sms_reply():
         print(f"{from_number} not interested")
         return ('', 204)
 
-    # Positive reply — send call message
+    # Positive reply — send call message with 10 second delay
     if is_positive(incoming_msg):
-        try:
-            client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-            client.messages.create(
-                body=CALL_MESSAGE,
-                from_=TWILIO_FROM_NUMBER,
-                to=from_number
-            )
-            prospect["stage"] = "CALL_SENT"
-            prospect["conversation"].append({
-                "role": "gavin",
-                "content": CALL_MESSAGE,
-                "time": datetime.now().strftime("%H:%M")
-            })
-            print(f"Sent call message to {from_number}")
-        except Exception as e:
-            print(f"Error sending message: {e}")
+        prospect["stage"] = "CALL_SENT"
+        prospect["conversation"].append({
+            "role": "gavin",
+            "content": CALL_MESSAGE,
+            "time": datetime.now().strftime("%H:%M")
+        })
+        save_prospect(from_number, prospect)
+
+        def send_delayed(phone):
+            time.sleep(10)
+            try:
+                client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+                client.messages.create(
+                    body=CALL_MESSAGE,
+                    from_=TWILIO_FROM_NUMBER,
+                    to=phone
+                )
+                print(f"Sent call message to {phone}")
+            except Exception as e:
+                print(f"Error sending message: {e}")
+
+        threading.Thread(target=send_delayed, args=(from_number,), daemon=True).start()
+        return ('', 204)
 
     save_prospect(from_number, prospect)
     return ('', 204)
