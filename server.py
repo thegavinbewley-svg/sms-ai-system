@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SMS System - Simple 2-message flow
+SMS System - Simple 2-message flow with PostgreSQL persistence
 Message 1: Blast opener (sent via blast.py)
 Message 2: If they respond positively, ask if they're free for a call
 Then Gavin takes over
@@ -8,9 +8,10 @@ Then Gavin takes over
 
 from flask import Flask, request, jsonify, render_template_string
 from twilio.rest import Client
-from twilio.twiml.messaging_response import MessagingResponse
 import json
 import os
+import psycopg2
+import psycopg2.extras
 from datetime import datetime
 
 app = Flask(__name__)
@@ -21,30 +22,131 @@ app = Flask(__name__)
 TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID", "ACadf86f354db213cd7b5769d3816f6c84")
 TWILIO_AUTH_TOKEN  = os.environ.get("TWILIO_AUTH_TOKEN", "3ca7119907fa08da43fb5696bf5d035c")
 TWILIO_FROM_NUMBER = os.environ.get("TWILIO_FROM_NUMBER", "+12362432623")
-DATA_FILE          = "prospects.json"
+DATABASE_URL       = os.environ.get("DATABASE_URL", "")
 
 # ============================================================
 # STAGES
 # ============================================================
 STAGES = [
-    ("NEW",         "New"),
-    ("REPLIED",     "Replied"),
-    ("INTERESTED",  "Interested ✅"),
-    ("CALL_SENT",   "Call Asked 📞"),
-    ("SCHEDULED",   "Call Scheduled 📅"),
-    ("TAKEOVER",    "Gavin Taking Over 👤"),
-    ("DEAD",        "Not Interested ❌"),
+    ("NEW",        "New"),
+    ("REPLIED",    "Replied"),
+    ("CALL_SENT",  "Call Asked"),
+    ("SCHEDULED",  "Scheduled"),
+    ("TAKEOVER",   "Your Turn"),
+    ("DEAD",       "Not Interested"),
 ]
 
 STAGE_COLORS = {
-    "NEW":        "#555",
-    "REPLIED":    "#1a6fbd",
-    "INTERESTED": "#1a8a3a",
-    "CALL_SENT":  "#b57a00",
-    "SCHEDULED":  "#0a7a8a",
-    "TAKEOVER":   "#fb923c",
-    "DEAD":       "#444",
+    "NEW":       "#555",
+    "REPLIED":   "#1a6fbd",
+    "CALL_SENT": "#b57a00",
+    "SCHEDULED": "#0a7a8a",
+    "TAKEOVER":  "#fb923c",
+    "DEAD":      "#444",
 }
+
+# ============================================================
+# DATABASE
+# ============================================================
+def get_db():
+    conn = psycopg2.connect(DATABASE_URL)
+    return conn
+
+def init_db():
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS prospects (
+                phone TEXT PRIMARY KEY,
+                name TEXT DEFAULT 'Unknown',
+                stage TEXT DEFAULT 'NEW',
+                last_message TEXT DEFAULT '',
+                updated_at TEXT DEFAULT '',
+                takeover BOOLEAN DEFAULT FALSE,
+                conversation JSONB DEFAULT '[]'
+            )
+        """)
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("Database initialized")
+    except Exception as e:
+        print(f"DB init error: {e}")
+
+def get_all_prospects():
+    try:
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM prospects")
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        result = {}
+        for row in rows:
+            result[row['phone']] = {
+                'name': row['name'],
+                'stage': row['stage'],
+                'last_message': row['last_message'],
+                'updated_at': row['updated_at'],
+                'takeover': row['takeover'],
+                'conversation': row['conversation'] if row['conversation'] else []
+            }
+        return result
+    except Exception as e:
+        print(f"DB get error: {e}")
+        return {}
+
+def get_prospect(phone):
+    try:
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM prospects WHERE phone = %s", (phone,))
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+        if row:
+            return {
+                'name': row['name'],
+                'stage': row['stage'],
+                'last_message': row['last_message'],
+                'updated_at': row['updated_at'],
+                'takeover': row['takeover'],
+                'conversation': row['conversation'] if row['conversation'] else []
+            }
+        return None
+    except Exception as e:
+        print(f"DB get prospect error: {e}")
+        return None
+
+def save_prospect(phone, data):
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO prospects (phone, name, stage, last_message, updated_at, takeover, conversation)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (phone) DO UPDATE SET
+                name = EXCLUDED.name,
+                stage = EXCLUDED.stage,
+                last_message = EXCLUDED.last_message,
+                updated_at = EXCLUDED.updated_at,
+                takeover = EXCLUDED.takeover,
+                conversation = EXCLUDED.conversation
+        """, (
+            phone,
+            data.get('name', 'Unknown'),
+            data.get('stage', 'NEW'),
+            data.get('last_message', ''),
+            data.get('updated_at', ''),
+            data.get('takeover', False),
+            json.dumps(data.get('conversation', []))
+        ))
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"DB save error: {e}")
 
 # ============================================================
 # POSITIVE / NEGATIVE DETECTION
@@ -53,8 +155,7 @@ POSITIVE_KEYWORDS = [
     "yes", "yeah", "yep", "yup", "sure", "absolutely", "definitely",
     "interested", "still", "of course", "sounds good", "ok", "okay",
     "i am", "i do", "for sure", "lets do it", "let's do it", "correct",
-    "affirmative", "indeed", "totally", "100", "drop", "dropshipping",
-    "want to", "id like", "i'd like", "please", "sign me up"
+    "totally", "100", "drop", "dropshipping", "want to", "please"
 ]
 
 NEGATIVE_KEYWORDS = [
@@ -63,19 +164,6 @@ NEGATIVE_KEYWORDS = [
     "changed my mind", "never mind", "nevermind", "cancel"
 ]
 
-def is_positive(message):
-    msg = message.lower().strip()
-    for word in NEGATIVE_KEYWORDS:
-        if word in msg:
-            return False
-    for word in POSITIVE_KEYWORDS:
-        if word in msg:
-            return True
-    # Default to positive if short reply (like "yes", "k", "ok")
-    if len(msg) < 20:
-        return True
-    return True  # Default positive unless clearly negative
-
 def is_negative(message):
     msg = message.lower().strip()
     for word in NEGATIVE_KEYWORDS:
@@ -83,20 +171,16 @@ def is_negative(message):
             return True
     return False
 
-# ============================================================
-# LOAD / SAVE
-# ============================================================
-def load_data():
-    if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "r") as f:
-            return json.load(f)
-    return {}
-
-def save_data(data):
-    with open(DATA_FILE, "w") as f:
-        json.dump(data, f, indent=2)
-
-prospects = load_data()
+def is_positive(message):
+    if is_negative(message):
+        return False
+    msg = message.lower().strip()
+    for word in POSITIVE_KEYWORDS:
+        if word in msg:
+            return True
+    if len(msg) < 20:
+        return True
+    return True
 
 # ============================================================
 # SECOND MESSAGE
@@ -110,11 +194,11 @@ CALL_MESSAGE = "Awesome! Are you free for a quick call today so we can get you s
 def sms_reply():
     incoming_msg = request.form.get("Body", "").strip()
     from_number  = request.form.get("From", "").strip()
-
     print(f"\nINBOUND {from_number}: {incoming_msg}")
 
-    if from_number not in prospects:
-        prospects[from_number] = {
+    prospect = get_prospect(from_number)
+    if not prospect:
+        prospect = {
             "name": "Unknown",
             "stage": "NEW",
             "last_message": "",
@@ -123,38 +207,37 @@ def sms_reply():
             "conversation": []
         }
 
-    prospects[from_number]["last_message"] = incoming_msg
-    prospects[from_number]["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
-    prospects[from_number]["conversation"].append({
+    prospect["last_message"] = incoming_msg
+    prospect["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+    prospect["conversation"].append({
         "role": "lead",
         "content": incoming_msg,
         "time": datetime.now().strftime("%H:%M")
     })
 
-    # If Gavin has taken over, just log and don't auto-reply
-    if prospects[from_number].get("takeover"):
-        save_data(prospects)
-        print(f"Takeover active for {from_number} — no auto reply sent")
+    # Takeover active — just log
+    if prospect.get("takeover"):
+        save_prospect(from_number, prospect)
+        print(f"Takeover active for {from_number}")
         return ('', 204)
 
-    # Already sent call message — Gavin takes over
-    if prospects[from_number]["stage"] in ["CALL_SENT", "SCHEDULED", "TAKEOVER"]:
-        prospects[from_number]["takeover"] = True
-        prospects[from_number]["stage"] = "TAKEOVER"
-        save_data(prospects)
-        print(f"Moving {from_number} to Gavin takeover")
+    # Already sent call message — switch to takeover
+    if prospect["stage"] in ["CALL_SENT", "SCHEDULED", "TAKEOVER"]:
+        prospect["takeover"] = True
+        prospect["stage"] = "TAKEOVER"
+        save_prospect(from_number, prospect)
         return ('', 204)
 
-    # Dead lead — don't reply
-    if prospects[from_number]["stage"] == "DEAD":
-        save_data(prospects)
+    # Dead lead — ignore
+    if prospect["stage"] == "DEAD":
+        save_prospect(from_number, prospect)
         return ('', 204)
 
-    # First reply — check if positive or negative
+    # Negative reply
     if is_negative(incoming_msg):
-        prospects[from_number]["stage"] = "DEAD"
-        save_data(prospects)
-        print(f"{from_number} marked as not interested")
+        prospect["stage"] = "DEAD"
+        save_prospect(from_number, prospect)
+        print(f"{from_number} not interested")
         return ('', 204)
 
     # Positive reply — send call message
@@ -166,8 +249,8 @@ def sms_reply():
                 from_=TWILIO_FROM_NUMBER,
                 to=from_number
             )
-            prospects[from_number]["stage"] = "CALL_SENT"
-            prospects[from_number]["conversation"].append({
+            prospect["stage"] = "CALL_SENT"
+            prospect["conversation"].append({
                 "role": "gavin",
                 "content": CALL_MESSAGE,
                 "time": datetime.now().strftime("%H:%M")
@@ -176,14 +259,13 @@ def sms_reply():
         except Exception as e:
             print(f"Error sending message: {e}")
 
-    save_data(prospects)
+    save_prospect(from_number, prospect)
     return ('', 204)
 
 # ============================================================
 # DASHBOARD
 # ============================================================
-DASHBOARD_HTML = """
-<!DOCTYPE html>
+DASHBOARD_HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -257,7 +339,7 @@ DASHBOARD_HTML = """
   <h1>Gavin's <span>Pipeline</span></h1>
   <div class="stats">
     <div class="stat blue"><div class="stat-num" id="stat-total">0</div><div class="stat-label">Total</div></div>
-    <div class="stat green"><div class="stat-num" id="stat-interested">0</div><div class="stat-label">Interested</div></div>
+    <div class="stat green"><div class="stat-num" id="stat-replied">0</div><div class="stat-label">Replied</div></div>
     <div class="stat orange"><div class="stat-num" id="stat-takeover">0</div><div class="stat-label">Your Turn</div></div>
   </div>
   <button class="refresh-btn" onclick="loadPipeline()">Refresh</button>
@@ -296,7 +378,7 @@ async function loadPipeline() {
   const data = await res.json();
   allProspects = data.prospects;
   document.getElementById('stat-total').textContent = data.total;
-  document.getElementById('stat-interested').textContent = data.interested;
+  document.getElementById('stat-replied').textContent = data.replied;
   document.getElementById('stat-takeover').textContent = data.takeover;
   const pipeline = document.getElementById('pipeline');
   pipeline.innerHTML = '';
@@ -389,12 +471,8 @@ loadPipeline();
 setInterval(loadPipeline,30000);
 </script>
 </body>
-</html>
-"""
+</html>"""
 
-# ============================================================
-# API ROUTES
-# ============================================================
 @app.route("/dashboard")
 def dashboard():
     import json as _json
@@ -405,11 +483,12 @@ def dashboard():
 
 @app.route("/api/prospects")
 def api_prospects():
+    all_p = get_all_prospects()
     return jsonify({
-        "total": len(prospects),
-        "interested": sum(1 for p in prospects.values() if p.get("stage") in ["INTERESTED","CALL_SENT"]),
-        "takeover": sum(1 for p in prospects.values() if p.get("stage") == "TAKEOVER"),
-        "prospects": prospects
+        "total": len(all_p),
+        "replied": sum(1 for p in all_p.values() if p.get("stage") in ["REPLIED","CALL_SENT"]),
+        "takeover": sum(1 for p in all_p.values() if p.get("stage") == "TAKEOVER"),
+        "prospects": all_p
     })
 
 @app.route("/api/takeover", methods=["POST"])
@@ -417,9 +496,10 @@ def api_takeover():
     data = request.json
     phone = data.get("phone")
     takeover = data.get("takeover", True)
-    if phone in prospects:
-        prospects[phone]["takeover"] = takeover
-        save_data(prospects)
+    prospect = get_prospect(phone)
+    if prospect:
+        prospect["takeover"] = takeover
+        save_prospect(phone, prospect)
         return jsonify({"ok": True})
     return jsonify({"ok": False}), 404
 
@@ -433,10 +513,11 @@ def api_send():
     try:
         client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
         client.messages.create(body=message, from_=TWILIO_FROM_NUMBER, to=phone)
-        if phone in prospects:
-            prospects[phone]["conversation"].append({"role": "gavin", "content": message, "time": datetime.now().strftime("%H:%M")})
-            prospects[phone]["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
-            save_data(prospects)
+        prospect = get_prospect(phone)
+        if prospect:
+            prospect["conversation"].append({"role": "gavin", "content": message, "time": datetime.now().strftime("%H:%M")})
+            prospect["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+            save_prospect(phone, prospect)
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
@@ -446,15 +527,19 @@ def api_set_stage():
     data = request.json
     phone = data.get("phone")
     stage = data.get("stage")
-    if phone in prospects:
-        prospects[phone]["stage"] = stage
-        save_data(prospects)
+    prospect = get_prospect(phone)
+    if prospect:
+        prospect["stage"] = stage
+        save_prospect(phone, prospect)
         return jsonify({"ok": True})
     return jsonify({"ok": False}), 404
 
 @app.route("/")
 def health():
-    return f"SMS System running | {len(prospects)} prospects | <a href='/dashboard'>Dashboard</a>", 200
+    return f"SMS System running | <a href='/dashboard'>Dashboard</a>", 200
+
+# Initialize DB on startup
+init_db()
 
 if __name__ == "__main__":
     print("Starting server on http://localhost:5000")

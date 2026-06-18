@@ -2,3 +2,4 @@ flask
 twilio
 anthropic
 gunicorn
+psycopg2-binary
