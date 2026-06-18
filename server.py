@@ -66,9 +66,11 @@ def init_db():
                 last_message TEXT DEFAULT '',
                 updated_at TEXT DEFAULT '',
                 takeover BOOLEAN DEFAULT FALSE,
-                conversation JSONB DEFAULT '[]'
+                conversation JSONB DEFAULT '[]',
+                notes JSONB DEFAULT '[]'
             )
         """)
+        cur.execute("ALTER TABLE prospects ADD COLUMN IF NOT EXISTS notes JSONB DEFAULT '[]'")
         conn.commit()
         cur.close()
         conn.close()
@@ -92,7 +94,8 @@ def get_all_prospects():
                 'last_message': row['last_message'],
                 'updated_at': row['updated_at'],
                 'takeover': row['takeover'],
-                'conversation': row['conversation'] if row['conversation'] else []
+                'conversation': row['conversation'] if row['conversation'] else [],
+                'notes': row['notes'] if row['notes'] else []
             }
         return result
     except Exception as e:
@@ -114,7 +117,8 @@ def get_prospect(phone):
                 'last_message': row['last_message'],
                 'updated_at': row['updated_at'],
                 'takeover': row['takeover'],
-                'conversation': row['conversation'] if row['conversation'] else []
+                'conversation': row['conversation'] if row['conversation'] else [],
+                'notes': row['notes'] if row['notes'] else []
             }
         return None
     except Exception as e:
@@ -126,15 +130,16 @@ def save_prospect(phone, data):
         conn = get_db()
         cur = conn.cursor()
         cur.execute("""
-            INSERT INTO prospects (phone, name, stage, last_message, updated_at, takeover, conversation)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO prospects (phone, name, stage, last_message, updated_at, takeover, conversation, notes)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (phone) DO UPDATE SET
                 name = EXCLUDED.name,
                 stage = EXCLUDED.stage,
                 last_message = EXCLUDED.last_message,
                 updated_at = EXCLUDED.updated_at,
                 takeover = EXCLUDED.takeover,
-                conversation = EXCLUDED.conversation
+                conversation = EXCLUDED.conversation,
+                notes = EXCLUDED.notes
         """, (
             phone,
             data.get('name', 'Unknown'),
@@ -142,7 +147,8 @@ def save_prospect(phone, data):
             data.get('last_message', ''),
             data.get('updated_at', ''),
             data.get('takeover', False),
-            json.dumps(data.get('conversation', []))
+            json.dumps(data.get('conversation', [])),
+            json.dumps(data.get('notes', []))
         ))
         conn.commit()
         cur.close()
@@ -301,7 +307,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     height: 56px;
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 12px;
     flex-shrink: 0;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   }
@@ -314,6 +320,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     display: flex;
     align-items: center;
     gap: 7px;
+    flex-shrink: 0;
   }
 
   .logo-icon {
@@ -329,15 +336,99 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
   .logo-icon svg { display: block; }
 
+  /* ── SEARCH ── */
+  .search-wrap {
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 9px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9CA3AF;
+    pointer-events: none;
+    display: flex;
+  }
+
+  .search-input {
+    background: #F9FAFB;
+    border: 1px solid #E5E7EB;
+    border-radius: 7px;
+    padding: 7px 10px 7px 30px;
+    font-size: 13px;
+    color: #111827;
+    width: 190px;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    font-family: inherit;
+  }
+
+  .search-input:focus {
+    border-color: #93C5FD;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.08);
+    background: #FFFFFF;
+  }
+
+  .search-input::placeholder { color: #C4C9D4; }
+
+  /* ── HEADER RIGHT ── */
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+  }
+
+  /* ── NOTIFICATION BADGE ── */
+  .notif-badge {
+    display: none;
+    align-items: center;
+    gap: 5px;
+    background: #FEF2F2;
+    border: 1px solid #FECACA;
+    color: #DC2626;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+    flex-shrink: 0;
+  }
+
+  .notif-badge.visible { display: flex; }
+
+  .notif-badge:hover {
+    background: #FEE2E2;
+  }
+
+  .notif-dot {
+    width: 6px;
+    height: 6px;
+    background: #EF4444;
+    border-radius: 50%;
+    flex-shrink: 0;
+    animation: pulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ── STATS ── */
   .stats {
     display: flex;
     align-items: center;
     gap: 2px;
-    margin-left: auto;
     background: #F3F4F6;
     border: 1px solid #E5E7EB;
     border-radius: 9px;
     padding: 3px;
+    flex-shrink: 0;
   }
 
   .stat {
@@ -391,6 +482,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     align-items: center;
     gap: 5px;
     white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .refresh-btn:hover {
@@ -571,9 +663,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  .side-panel.open {
-    transform: translateX(0);
-  }
+  .side-panel.open { transform: translateX(0); }
 
   .panel-header {
     padding: 16px 18px 13px;
@@ -618,10 +708,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     margin-top: 1px;
   }
 
-  .panel-close:hover {
-    background: #E5E7EB;
-    color: #374151;
-  }
+  .panel-close:hover { background: #E5E7EB; color: #374151; }
 
   .panel-meta {
     padding: 9px 18px;
@@ -650,14 +737,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     flex-shrink: 0;
   }
 
-  .meta-time {
-    font-size: 11px;
-    color: #9CA3AF;
-  }
+  .meta-time { font-size: 11px; color: #9CA3AF; }
 
   /* ── CONVERSATION ── */
   .convo {
     flex: 1;
+    min-height: 80px;
     overflow-y: auto;
     padding: 14px 18px;
     display: flex;
@@ -704,7 +789,151 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     color: #D1D5DB;
     font-size: 13px;
     text-align: center;
-    padding: 48px 20px;
+    padding: 40px 20px;
+  }
+
+  /* ── NOTES SECTION ── */
+  .notes-section {
+    border-top: 1px solid #F3F4F6;
+    flex-shrink: 0;
+    background: #FFFFFF;
+  }
+
+  .notes-toggle-row {
+    padding: 8px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .notes-toggle-row:hover { background: #FAFAFA; }
+
+  .notes-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #9CA3AF;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .notes-count-badge {
+    background: #F3F4F6;
+    color: #6B7280;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 10px;
+  }
+
+  .notes-chevron {
+    font-size: 9px;
+    color: #C4C9D4;
+    transition: transform 0.2s;
+  }
+
+  .notes-chevron.open { transform: rotate(180deg); }
+
+  .notes-body {
+    padding: 0 18px 12px;
+    display: none;
+  }
+
+  .notes-body.open { display: block; }
+
+  .notes-list {
+    max-height: 110px;
+    overflow-y: auto;
+    margin-bottom: 9px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .notes-list:empty::after {
+    content: 'No notes yet';
+    display: block;
+    font-size: 11px;
+    color: #D1D5DB;
+    text-align: center;
+    padding: 8px 0;
+    font-style: italic;
+  }
+
+  .notes-list::-webkit-scrollbar { width: 3px; }
+  .notes-list::-webkit-scrollbar-thumb { background: #E5E7EB; }
+
+  .note-item {
+    background: #FFFBEB;
+    border: 1px solid #FDE68A;
+    border-radius: 7px;
+    padding: 7px 10px;
+  }
+
+  .note-text { font-size: 12px; color: #78350F; line-height: 1.45; }
+  .note-time { font-size: 10px; color: #B45309; margin-top: 3px; }
+
+  .notes-compose {
+    display: flex;
+    gap: 7px;
+    align-items: flex-end;
+  }
+
+  .notes-compose textarea {
+    flex: 1;
+    background: #F9FAFB;
+    border: 1px solid #E5E7EB;
+    border-radius: 7px;
+    color: #111827;
+    padding: 7px 10px;
+    font-size: 12px;
+    resize: none;
+    height: 52px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    line-height: 1.4;
+  }
+
+  .notes-compose textarea::placeholder { color: #C4C9D4; }
+
+  .notes-compose textarea:focus {
+    border-color: #93C5FD;
+    background: #FFFFFF;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.08);
+  }
+
+  .btn-save-note {
+    background: #F9FAFB;
+    border: 1px solid #E5E7EB;
+    color: #374151;
+    padding: 7px 12px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+    align-self: flex-end;
+    height: 52px;
+  }
+
+  .btn-save-note:hover {
+    background: #EFF6FF;
+    border-color: #BFDBFE;
+    color: #1D4ED8;
+  }
+
+  .btn-save-note:disabled {
+    background: #F3F4F6;
+    color: #C4C9D4;
+    cursor: not-allowed;
+    border-color: #E5E7EB;
   }
 
   /* ── PANEL ACTIONS ── */
@@ -730,28 +959,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     line-height: 1.4;
   }
 
-  .btn-primary {
-    background: #2563EB;
-    color: #FFFFFF;
-    border-color: #2563EB;
-  }
+  .btn-primary { background: #2563EB; color: #FFFFFF; border-color: #2563EB; }
+  .btn-primary:hover { background: #1D4ED8; border-color: #1D4ED8; }
 
-  .btn-primary:hover {
-    background: #1D4ED8;
-    border-color: #1D4ED8;
-  }
-
-  .btn-ghost {
-    background: #FFFFFF;
-    color: #374151;
-    border-color: #E5E7EB;
-  }
-
-  .btn-ghost:hover {
-    background: #F9FAFB;
-    border-color: #D1D5DB;
-    color: #111827;
-  }
+  .btn-ghost { background: #FFFFFF; color: #374151; border-color: #E5E7EB; }
+  .btn-ghost:hover { background: #F9FAFB; border-color: #D1D5DB; color: #111827; }
 
   /* ── STAGE PICKER ── */
   .stage-picker {
@@ -781,18 +993,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     gap: 5px;
   }
 
-  .stage-opt:hover {
-    background: #EFF6FF;
-    border-color: #BFDBFE;
-    color: #1D4ED8;
-  }
+  .stage-opt:hover { background: #EFF6FF; border-color: #BFDBFE; color: #1D4ED8; }
 
-  .stage-opt-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
+  .stage-opt-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
 
   /* ── REPLY BOX ── */
   .reply-box {
@@ -829,11 +1032,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     box-shadow: 0 0 0 3px rgba(37,99,235,0.08);
   }
 
-  .reply-foot {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 7px;
-  }
+  .reply-foot { display: flex; justify-content: flex-end; margin-top: 7px; }
 
   .btn-send {
     background: #2563EB;
@@ -848,12 +1047,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   }
 
   .btn-send:hover { background: #1D4ED8; }
-
-  .btn-send:disabled {
-    background: #E5E7EB;
-    color: #9CA3AF;
-    cursor: not-allowed;
-  }
+  .btn-send:disabled { background: #E5E7EB; color: #9CA3AF; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -871,30 +1065,47 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     Pipeline
   </div>
 
-  <div class="stats">
-    <div class="stat">
-      <div class="stat-n" id="s-total">0</div>
-      <div class="stat-l">Total leads</div>
-    </div>
-    <div class="stat-divider"></div>
-    <div class="stat highlighted">
-      <div class="stat-n" id="s-replied">0</div>
-      <div class="stat-l">Replied</div>
-    </div>
-    <div class="stat-divider"></div>
-    <div class="stat highlighted">
-      <div class="stat-n" id="s-yours">0</div>
-      <div class="stat-l">Your turn</div>
-    </div>
+  <div class="search-wrap">
+    <span class="search-icon">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+        <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" stroke-width="1.4"/>
+        <path d="M8.5 8.5L11 11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+    </span>
+    <input class="search-input" type="text" id="search-input" placeholder="Search leads…" oninput="filterCards(this.value)" autocomplete="off">
   </div>
 
-  <button class="refresh-btn" onclick="load()">
-    <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
-      <path d="M9.5 5.5A4 4 0 1 1 5.5 1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-      <path d="M5.5 1.5L7.5 3.5L5.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    Refresh
-  </button>
+  <div class="header-right">
+    <span class="notif-badge" id="notif-badge" onclick="clearBadge()">
+      <span class="notif-dot"></span>
+      <span id="notif-text"></span>
+    </span>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-n" id="s-total">0</div>
+        <div class="stat-l">Total leads</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat highlighted">
+        <div class="stat-n" id="s-replied">0</div>
+        <div class="stat-l">Replied</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat highlighted">
+        <div class="stat-n" id="s-yours">0</div>
+        <div class="stat-l">Your turn</div>
+      </div>
+    </div>
+
+    <button class="refresh-btn" onclick="manualLoad()">
+      <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+        <path d="M9.5 5.5A4 4 0 1 1 5.5 1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M5.5 1.5L7.5 3.5L5.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Refresh
+    </button>
+  </div>
 </header>
 
 <div class="board" id="board"></div>
@@ -911,6 +1122,24 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   </div>
   <div class="panel-meta" id="p-meta"></div>
   <div class="convo" id="p-convo"></div>
+
+  <div class="notes-section">
+    <div class="notes-toggle-row" onclick="toggleNotesPanel()">
+      <span class="notes-label">
+        Notes
+        <span class="notes-count-badge" id="notes-count">0</span>
+      </span>
+      <span class="notes-chevron" id="notes-chevron">&#9650;</span>
+    </div>
+    <div class="notes-body open" id="notes-body">
+      <div class="notes-list" id="notes-list"></div>
+      <div class="notes-compose">
+        <textarea id="note-text" placeholder="Add a private note…"></textarea>
+        <button class="btn-save-note" id="btn-save-note" onclick="saveNote()">Save</button>
+      </div>
+    </div>
+  </div>
+
   <div class="panel-actions">
     <button class="btn btn-primary" id="btn-take" onclick="toggleTakeover()">Take over</button>
     <button class="btn btn-ghost" onclick="togglePicker()">Move stage</button>
@@ -936,16 +1165,87 @@ const STAGES = [
 
 let data = {};
 let cur = null;
+let notesPanelOpen = true;
 
-async function load() {
-  const res = await fetch('/api/prospects');
+// ── SEARCH ──────────────────────────────────────────────────
+function filterCards(query) {
+  const q = query.toLowerCase().trim();
+  document.querySelectorAll('.col').forEach(col => {
+    let visible = 0;
+    col.querySelectorAll('.card').forEach(card => {
+      const name  = (card.querySelector('.card-name')?.textContent  || '').toLowerCase();
+      const phone = (card.querySelector('.card-phone')?.textContent || '').toLowerCase();
+      const match = !q || name.includes(q) || phone.includes(q);
+      card.style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+    const countEl = col.querySelector('.col-count');
+    if (countEl) countEl.textContent = visible;
+  });
+}
+
+// ── NOTIFICATIONS ────────────────────────────────────────────
+function parseDBTime(s) {
+  if (!s) return 0;
+  try { return new Date(s.replace(' ', 'T') + ':00').getTime(); } catch(e) { return 0; }
+}
+
+function getLastVisit() {
+  return parseInt(localStorage.getItem('pipelineLastVisit') || '0', 10);
+}
+
+function setLastVisit() {
+  localStorage.setItem('pipelineLastVisit', Date.now().toString());
+}
+
+function countNewReplies() {
+  const lastVisit = getLastVisit();
+  if (!lastVisit) return 0;
+  const active = new Set(['REPLIED','CALL_SENT','SCHEDULED','TAKEOVER']);
+  let n = 0;
+  for (const p of Object.values(data)) {
+    if (active.has(p.stage) && parseDBTime(p.updated_at) > lastVisit) n++;
+  }
+  return n;
+}
+
+function updateBadge(n) {
+  const badge = document.getElementById('notif-badge');
+  const text  = document.getElementById('notif-text');
+  if (n > 0) {
+    text.textContent = n === 1 ? '1 new reply' : n + ' new replies';
+    badge.classList.add('visible');
+    document.title = '(' + n + ') Pipeline';
+  } else {
+    badge.classList.remove('visible');
+    document.title = 'Pipeline';
+  }
+}
+
+function clearBadge() {
+  setLastVisit();
+  updateBadge(0);
+}
+
+function manualLoad() {
+  setLastVisit();
+  updateBadge(0);
+  load(true);
+}
+
+// ── CORE DATA ────────────────────────────────────────────────
+async function load(isManual) {
+  const res  = await fetch('/api/prospects');
   const json = await res.json();
   data = json.prospects || {};
-  document.getElementById('s-total').textContent = json.total || 0;
-  document.getElementById('s-replied').textContent = json.replied || 0;
-  document.getElementById('s-yours').textContent = json.takeover || 0;
+  document.getElementById('s-total').textContent   = json.total    || 0;
+  document.getElementById('s-replied').textContent = json.replied  || 0;
+  document.getElementById('s-yours').textContent   = json.takeover || 0;
   renderBoard();
   if (cur && data[cur]) renderPanel(cur);
+  if (!isManual) updateBadge(countNewReplies());
+  const q = document.getElementById('search-input').value;
+  if (q) filterCards(q);
 }
 
 function renderBoard() {
@@ -953,8 +1253,8 @@ function renderBoard() {
   board.innerHTML = '';
   STAGES.forEach(([code, label, color]) => {
     const leads = Object.entries(data).filter(([,p]) => p.stage === code);
-    const col = document.createElement('div');
-    col.className = 'col';
+    const col   = document.createElement('div');
+    col.className   = 'col';
     col.dataset.stage = code;
     col.innerHTML = `
       <div class="col-head">
@@ -973,12 +1273,12 @@ function renderBoard() {
     const body = col.querySelector('.col-body');
     leads.forEach(([phone, p]) => {
       const card = document.createElement('div');
-      card.className = 'card';
-      card.draggable = true;
+      card.className  = 'card';
+      card.draggable  = true;
       card.dataset.phone = phone;
-      card.onclick = () => openPanel(phone);
+      card.onclick    = () => openPanel(phone);
       card.ondragstart = (e) => { e.dataTransfer.setData('phone', phone); card.classList.add('dragging'); };
-      card.ondragend = () => card.classList.remove('dragging');
+      card.ondragend   = () => card.classList.remove('dragging');
       const last = p.last_message ? p.last_message.substring(0,52)+(p.last_message.length>52?'…':'') : '';
       card.innerHTML = `
         <div class="card-name">${p.name || 'Unknown'}</div>
@@ -991,22 +1291,18 @@ function renderBoard() {
   });
 }
 
-function onDragOver(e) {
-  e.preventDefault();
-  e.currentTarget.classList.add('drag-over');
-}
-function onDragLeave(e) {
-  e.currentTarget.classList.remove('drag-over');
-}
+function onDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+function onDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
 async function onDrop(e, stage) {
   e.preventDefault();
   e.currentTarget.classList.remove('drag-over');
   const phone = e.dataTransfer.getData('phone');
   if (!phone || !data[phone]) return;
   await fetch('/api/set_stage', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({phone, stage}) });
-  await load();
+  await load(true);
 }
 
+// ── PANEL ────────────────────────────────────────────────────
 function openPanel(phone) {
   cur = phone;
   renderPanel(phone);
@@ -1017,8 +1313,9 @@ function openPanel(phone) {
 function renderPanel(phone) {
   const p = data[phone];
   if (!p) return;
-  document.getElementById('p-name').textContent = p.name || 'Unknown';
+  document.getElementById('p-name').textContent  = p.name || 'Unknown';
   document.getElementById('p-phone').textContent = phone;
+
   const stageInfo = STAGES.find(([c]) => c === p.stage) || STAGES[0];
   const hex = stageInfo[2];
   document.getElementById('p-meta').innerHTML = `
@@ -1027,6 +1324,7 @@ function renderPanel(phone) {
     </span>
     ${p.updated_at ? `<span class="meta-time">${p.updated_at}</span>` : ''}
   `;
+
   const convo = document.getElementById('p-convo');
   convo.innerHTML = '';
   const msgs = p.conversation || [];
@@ -1039,17 +1337,21 @@ function renderPanel(phone) {
     convo.appendChild(wrap);
   });
   setTimeout(() => convo.scrollTop = convo.scrollHeight, 50);
-  const btnTake = document.getElementById('btn-take');
+
+  renderNotes(p.notes || []);
+
+  const btnTake  = document.getElementById('btn-take');
   const replyBox = document.getElementById('reply-box');
   if (p.takeover) {
     btnTake.textContent = 'Resume auto';
-    btnTake.className = 'btn btn-ghost';
+    btnTake.className   = 'btn btn-ghost';
     replyBox.classList.add('open');
   } else {
     btnTake.textContent = 'Take over';
-    btnTake.className = 'btn btn-primary';
+    btnTake.className   = 'btn btn-primary';
     replyBox.classList.remove('open');
   }
+
   const picker = document.getElementById('stage-picker');
   picker.classList.remove('open');
   picker.innerHTML = STAGES.map(([code, label, color]) =>
@@ -1068,7 +1370,7 @@ async function toggleTakeover() {
   if (!cur) return;
   const p = data[cur];
   await fetch('/api/takeover', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({phone:cur, takeover:!p.takeover}) });
-  await load();
+  await load(true);
 }
 
 async function sendMsg() {
@@ -1077,9 +1379,9 @@ async function sendMsg() {
   if (!text) return;
   const btn = document.getElementById('btn-send');
   btn.disabled = true; btn.textContent = 'Sending…';
-  const res = await fetch('/api/send', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({phone:cur, message:text}) });
+  const res  = await fetch('/api/send', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({phone:cur, message:text}) });
   const json = await res.json();
-  if (json.ok) { document.getElementById('reply-text').value = ''; await load(); }
+  if (json.ok) { document.getElementById('reply-text').value = ''; await load(true); }
   else alert('Failed: ' + (json.error || 'unknown error'));
   btn.disabled = false; btn.textContent = 'Send';
 }
@@ -1090,13 +1392,50 @@ async function setStage(stage) {
   if (!cur) return;
   await fetch('/api/set_stage', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({phone:cur, stage}) });
   document.getElementById('stage-picker').classList.remove('open');
-  await load();
+  await load(true);
 }
 
+// ── NOTES ────────────────────────────────────────────────────
+function renderNotes(notes) {
+  const list  = document.getElementById('notes-list');
+  const count = document.getElementById('notes-count');
+  list.innerHTML = '';
+  count.textContent = notes.length;
+  notes.forEach(n => {
+    const item = document.createElement('div');
+    item.className = 'note-item';
+    item.innerHTML = `<div class="note-text">${n.text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div><div class="note-time">${n.time}</div>`;
+    list.appendChild(item);
+  });
+  setTimeout(() => list.scrollTop = list.scrollHeight, 30);
+}
+
+async function saveNote() {
+  if (!cur) return;
+  const text = document.getElementById('note-text').value.trim();
+  if (!text) return;
+  const btn = document.getElementById('btn-save-note');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  const res  = await fetch('/api/save_note', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({phone:cur, note:text}) });
+  const json = await res.json();
+  if (json.ok) { document.getElementById('note-text').value = ''; await load(true); }
+  else alert('Failed to save note: ' + (json.error || 'unknown error'));
+  btn.disabled = false; btn.textContent = 'Save';
+}
+
+function toggleNotesPanel() {
+  notesPanelOpen = !notesPanelOpen;
+  document.getElementById('notes-body').classList.toggle('open', notesPanelOpen);
+  const chevron = document.getElementById('notes-chevron');
+  chevron.classList.toggle('open', notesPanelOpen);
+}
+
+// ── INIT ─────────────────────────────────────────────────────
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanel(); });
 
-load();
-setInterval(load, 30000);
+setLastVisit();
+load(true);
+setInterval(() => load(false), 30000);
 </script>
 </body>
 </html>
@@ -1162,6 +1501,22 @@ def api_set_stage():
         save_prospect(phone, prospect)
         return jsonify({"ok": True})
     return jsonify({"ok": False}), 404
+
+@app.route("/api/save_note", methods=["POST"])
+def api_save_note():
+    data = request.json
+    phone = data.get("phone")
+    note_text = data.get("note", "").strip()
+    if not phone or not note_text:
+        return jsonify({"ok": False, "error": "Missing phone or note"}), 400
+    prospect = get_prospect(phone)
+    if not prospect:
+        return jsonify({"ok": False, "error": "Prospect not found"}), 404
+    notes = prospect.get("notes", [])
+    notes.append({"text": note_text, "time": datetime.now().strftime("%Y-%m-%d %H:%M")})
+    prospect["notes"] = notes
+    save_prospect(phone, prospect)
+    return jsonify({"ok": True})
 
 @app.route("/")
 def health():
